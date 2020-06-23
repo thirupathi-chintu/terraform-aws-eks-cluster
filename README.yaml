@@ -1,0 +1,292 @@
+---
+#
+# This is the canonical configuration for the `README.md`
+# Run `make readme` to rebuild the `README.md`
+#
+
+# Name of this project
+name: terraform-aws-eks-cluster
+
+# Logo for this project
+#logo: docs/logo.png
+
+# License of this project
+license: "APACHE2"
+
+# Canonical GitHub repo
+github_repo: cloudposse/terraform-aws-eks-cluster
+
+# Badges to display
+badges:
+  - name: "Codefresh Build Status"
+    image: "https://g.codefresh.io/api/badges/pipeline/cloudposse/terraform-modules%2Fterraform-aws-eks-cluster?type=cf-1"
+    url: "https://g.codefresh.io/public/accounts/cloudposse/pipelines/5d8cd583941e46a098d3992d"
+  - name: "Latest Release"
+    image: "https://img.shields.io/github/release/cloudposse/terraform-aws-eks-cluster.svg"
+    url: "https://github.com/cloudposse/terraform-aws-eks-cluster/releases/latest"
+  - name: "Slack Community"
+    image: "https://slack.cloudposse.com/badge.svg"
+    url: "https://slack.cloudposse.com"
+
+related:
+  - name: "terraform-aws-eks-workers"
+    description: "Terraform module to provision an AWS AutoScaling Group, IAM Role, and Security Group for EKS Workers"
+    url: "https://github.com/cloudposse/terraform-aws-eks-workers"
+  - name: "terraform-aws-ec2-autoscale-group"
+    description: "Terraform module to provision Auto Scaling Group and Launch Template on AWS"
+    url: "https://github.com/cloudposse/terraform-aws-ec2-autoscale-group"
+  - name: "terraform-aws-ecs-container-definition"
+    description: "Terraform module to generate well-formed JSON documents (container definitions) that are passed to the  aws_ecs_task_definition Terraform resource"
+    url: "https://github.com/cloudposse/terraform-aws-ecs-container-definition"
+  - name: "terraform-aws-ecs-alb-service-task"
+    description: "Terraform module which implements an ECS service which exposes a web service via ALB"
+    url: "https://github.com/cloudposse/terraform-aws-ecs-alb-service-task"
+  - name: "terraform-aws-ecs-web-app"
+    description: "Terraform module that implements a web app on ECS and supports autoscaling, CI/CD, monitoring, ALB integration, and much more"
+    url: "https://github.com/cloudposse/terraform-aws-ecs-web-app"
+  - name: "terraform-aws-ecs-codepipeline"
+    description: "Terraform module for CI/CD with AWS Code Pipeline and Code Build for ECS"
+    url: "https://github.com/cloudposse/terraform-aws-ecs-codepipeline"
+  - name: "terraform-aws-ecs-cloudwatch-autoscaling"
+    description: "Terraform module to autoscale ECS Service based on CloudWatch metrics"
+    url: "https://github.com/cloudposse/terraform-aws-ecs-cloudwatch-autoscaling"
+  - name: "terraform-aws-ecs-cloudwatch-sns-alarms"
+    description: "Terraform module to create CloudWatch Alarms on ECS Service level metrics"
+    url: "https://github.com/cloudposse/terraform-aws-ecs-cloudwatch-sns-alarms"
+  - name: "terraform-aws-ec2-instance"
+    description: "Terraform module for providing a general purpose EC2 instance"
+    url: "https://github.com/cloudposse/terraform-aws-ec2-instance"
+  - name: "terraform-aws-ec2-instance-group"
+    description: "Terraform module for provisioning multiple general purpose EC2 hosts for stateful applications"
+    url: "https://github.com/cloudposse/terraform-aws-ec2-instance-group"
+
+# Short description of this project
+description: |-
+  Terraform module to provision an [EKS](https://aws.amazon.com/eks/) cluster on AWS.
+
+introduction: |-
+  The module provisions the following resources:
+
+  - EKS cluster of master nodes that can be used together with the [terraform-aws-eks-workers](https://github.com/cloudposse/terraform-aws-eks-workers),
+    [terraform-aws-eks-node-group](https://github.com/cloudposse/terraform-aws-eks-node-group) and
+    [terraform-aws-eks-fargate-profile](https://github.com/cloudposse/terraform-aws-eks-fargate-profile)
+    modules to create a full-blown cluster
+  - IAM Role to allow the cluster to access other AWS services
+  - Security Group which is used by EKS workers to connect to the cluster and kubelets and pods to receive communication from the cluster control plane
+  - The module creates and automatically applies an authentication ConfigMap to allow the wrokers nodes to join the cluster and to add additional users/roles/accounts
+
+  __NOTE:__ The module works with [Terraform Cloud](https://www.terraform.io/docs/cloud/index.html).
+
+  __NOTE:__ In `auth.tf`, we added `ignore_changes = [data["mapRoles"]]` to the `kubernetes_config_map` for the following reason:
+  - We provision the EKS cluster and then the Kubernetes Auth ConfigMap to map additional roles/users/accounts to Kubernetes groups
+  - Then we wait for the cluster to become available and for the ConfigMap to get provisioned (see `data "null_data_source" "wait_for_cluster_and_kubernetes_configmap"` in `examples/complete/main.tf`)
+  - Then we provision a managed Node Group
+  - Then EKS updates the Auth ConfigMap and adds worker roles to it (for the worker nodes to join the cluster)
+  - Since the ConfigMap is modified outside of Terraform state, Terraform wants to update it (remove the roles that EKS added) on each `plan/apply`
+
+  If you want to modify the Node Group (e.g. add more Node Groups to the cluster) or need to map other IAM roles to Kubernetes groups,
+  set the variable `kubernetes_config_map_ignore_role_changes` to `false` and re-provision the module. Then set `kubernetes_config_map_ignore_role_changes` back to `true`.
+
+# How to use this project
+usage: |-
+
+  For a complete example, see [examples/complete](examples/complete).
+
+  For automated tests of the complete example using [bats](https://github.com/bats-core/bats-core) and [Terratest](https://github.com/gruntwork-io/terratest) (which tests and deploys the example on AWS), see [test](test).
+
+  Other examples:
+
+  - [terraform-root-modules/eks](https://github.com/cloudposse/terraform-root-modules/tree/master/aws/eks) - Cloud Posse's service catalog of "root module" invocations for provisioning reference architectures
+  - [terraform-root-modules/eks-backing-services-peering](https://github.com/cloudposse/terraform-root-modules/tree/master/aws/eks-backing-services-peering) - example of VPC peering between the EKS VPC and backing services VPC
+
+  ```hcl
+    provider "aws" {
+      region = var.region
+    }
+
+    module "label" {
+      source     = "git::https://github.com/cloudposse/terraform-null-label.git?ref=master"
+      namespace  = var.namespace
+      name       = var.name
+      stage      = var.stage
+      delimiter  = var.delimiter
+      attributes = compact(concat(var.attributes, list("cluster")))
+      tags       = var.tags
+    }
+
+    locals {
+      # The usage of the specific kubernetes.io/cluster/* resource tags below are required
+      # for EKS and Kubernetes to discover and manage networking resources
+      # https://www.terraform.io/docs/providers/aws/guides/eks-getting-started.html#base-vpc-networking
+      tags = merge(var.tags, map("kubernetes.io/cluster/${module.label.id}", "shared"))
+
+      # Unfortunately, most_recent (https://github.com/cloudposse/terraform-aws-eks-workers/blob/34a43c25624a6efb3ba5d2770a601d7cb3c0d391/main.tf#L141)
+      # variable does not work as expected, if you are not going to use custom AMI you should
+      # enforce usage of eks_worker_ami_name_filter variable to set the right kubernetes version for EKS workers,
+      # otherwise the first version of Kubernetes supported by AWS (v1.11) for EKS workers will be used, but
+      # EKS control plane will use the version specified by kubernetes_version variable.
+      eks_worker_ami_name_filter = "amazon-eks-node-${var.kubernetes_version}*"
+    }
+
+    module "vpc" {
+      source     = "git::https://github.com/cloudposse/terraform-aws-vpc.git?ref=master"
+      namespace  = var.namespace
+      stage      = var.stage
+      name       = var.name
+      attributes = var.attributes
+      cidr_block = "172.16.0.0/16"
+      tags       = local.tags
+    }
+
+    module "subnets" {
+      source               = "git::https://github.com/cloudposse/terraform-aws-dynamic-subnets.git?ref=master"
+      availability_zones   = var.availability_zones
+      namespace            = var.namespace
+      stage                = var.stage
+      name                 = var.name
+      attributes           = var.attributes
+      vpc_id               = module.vpc.vpc_id
+      igw_id               = module.vpc.igw_id
+      cidr_block           = module.vpc.vpc_cidr_block
+      nat_gateway_enabled  = false
+      nat_instance_enabled = false
+      tags                 = local.tags
+    }
+
+    module "eks_workers" {
+      source                             = "git::https://github.com/cloudposse/terraform-aws-eks-workers.git?ref=master"
+      namespace                          = var.namespace
+      stage                              = var.stage
+      name                               = var.name
+      attributes                         = var.attributes
+      tags                               = var.tags
+      instance_type                      = var.instance_type
+      eks_worker_ami_name_filter          = local.eks_worker_ami_name_filter
+      vpc_id                             = module.vpc.vpc_id
+      subnet_ids                         = module.subnets.public_subnet_ids
+      health_check_type                  = var.health_check_type
+      min_size                           = var.min_size
+      max_size                           = var.max_size
+      wait_for_capacity_timeout          = var.wait_for_capacity_timeout
+      cluster_name                       = module.label.id
+      cluster_endpoint                   = module.eks_cluster.eks_cluster_endpoint
+      cluster_certificate_authority_data = module.eks_cluster.eks_cluster_certificate_authority_data
+      cluster_security_group_id          = module.eks_cluster.security_group_id
+
+      # Auto-scaling policies and CloudWatch metric alarms
+      autoscaling_policies_enabled           = var.autoscaling_policies_enabled
+      cpu_utilization_high_threshold_percent = var.cpu_utilization_high_threshold_percent
+      cpu_utilization_low_threshold_percent  = var.cpu_utilization_low_threshold_percent
+    }
+
+    module "eks_cluster" {
+      source     = "git::https://github.com/cloudposse/terraform-aws-eks-cluster.git?ref=master"
+      namespace  = var.namespace
+      stage      = var.stage
+      name       = var.name
+      attributes = var.attributes
+      tags       = var.tags
+      vpc_id     = module.vpc.vpc_id
+      subnet_ids = module.subnets.public_subnet_ids
+
+      kubernetes_version    = var.kubernetes_version
+      oidc_provider_enabled = false
+
+      workers_security_group_ids   = [module.eks_workers.security_group_id]
+      workers_role_arns            = [module.eks_workers.workers_role_arn]
+    }
+  ```
+
+  Module usage with two worker groups:
+
+  ```hcl
+    module "eks_workers" {
+      source                             = "git::https://github.com/cloudposse/terraform-aws-eks-workers.git?ref=master"
+      namespace                          = var.namespace
+      stage                              = var.stage
+      name                               = "small"
+      attributes                         = var.attributes
+      tags                               = var.tags
+      instance_type                      = "t3.small"
+      vpc_id                             = module.vpc.vpc_id
+      subnet_ids                         = module.subnets.public_subnet_ids
+      health_check_type                  = var.health_check_type
+      min_size                           = var.min_size
+      max_size                           = var.max_size
+      wait_for_capacity_timeout          = var.wait_for_capacity_timeout
+      cluster_name                       = module.label.id
+      cluster_endpoint                   = module.eks_cluster.eks_cluster_endpoint
+      cluster_certificate_authority_data = module.eks_cluster.eks_cluster_certificate_authority_data
+      cluster_security_group_id          = module.eks_cluster.security_group_id
+
+      # Auto-scaling policies and CloudWatch metric alarms
+      autoscaling_policies_enabled           = var.autoscaling_policies_enabled
+      cpu_utilization_high_threshold_percent = var.cpu_utilization_high_threshold_percent
+      cpu_utilization_low_threshold_percent  = var.cpu_utilization_low_threshold_percent
+    }
+
+    module "eks_workers_2" {
+      source                             = "git::https://github.com/cloudposse/terraform-aws-eks-workers.git?ref=master"
+      namespace                          = var.namespace
+      stage                              = var.stage
+      name                               = "medium"
+      attributes                         = var.attributes
+      tags                               = var.tags
+      instance_type                      = "t3.medium"
+      vpc_id                             = module.vpc.vpc_id
+      subnet_ids                         = module.subnets.public_subnet_ids
+      health_check_type                  = var.health_check_type
+      min_size                           = var.min_size
+      max_size                           = var.max_size
+      wait_for_capacity_timeout          = var.wait_for_capacity_timeout
+      cluster_name                       = module.label.id
+      cluster_endpoint                   = module.eks_cluster.eks_cluster_endpoint
+      cluster_certificate_authority_data = module.eks_cluster.eks_cluster_certificate_authority_data
+      cluster_security_group_id          = module.eks_cluster.security_group_id
+
+      # Auto-scaling policies and CloudWatch metric alarms
+      autoscaling_policies_enabled           = var.autoscaling_policies_enabled
+      cpu_utilization_high_threshold_percent = var.cpu_utilization_high_threshold_percent
+      cpu_utilization_low_threshold_percent  = var.cpu_utilization_low_threshold_percent
+    }
+
+    module "eks_cluster" {
+      source     = "git::https://github.com/cloudposse/terraform-aws-eks-cluster.git?ref=master"
+      namespace  = var.namespace
+      stage      = var.stage
+      name       = var.name
+      attributes = var.attributes
+      tags       = var.tags
+      vpc_id     = module.vpc.vpc_id
+      subnet_ids = module.subnets.public_subnet_ids
+
+      kubernetes_version    = var.kubernetes_version
+      oidc_provider_enabled = false
+
+      workers_role_arns          = [module.eks_workers.workers_role_arn, module.eks_workers_2.workers_role_arn]
+      workers_security_group_ids = [module.eks_workers.security_group_id, module.eks_workers_2.security_group_id]
+    }
+  ```
+
+include:
+  - "docs/targets.md"
+  - "docs/terraform.md"
+
+# Contributors to this project
+contributors:
+  - name: "Erik Osterman"
+    homepage: "https://github.com/osterman"
+    avatar: "http://s.gravatar.com/avatar/88c480d4f73b813904e00a5695a454cb?s=144"
+    github: "osterman"
+  - name: "Andriy Knysh"
+    homepage: "https://github.com/aknysh/"
+    avatar: "https://avatars0.githubusercontent.com/u/7356997?v=4&u=ed9ce1c9151d552d985bdf5546772e14ef7ab617&s=144"
+    github: "aknysh"
+  - name: "Igor Rodionov"
+    homepage: "https://github.com/goruha/"
+    avatar: "http://s.gravatar.com/avatar/bc70834d32ed4517568a1feb0b9be7e2?s=144"
+    github: "goruha"
+  - name: "Oscar"
+    homepage: "https://github.com/osulli/"
+    avatar: "https://avatars1.githubusercontent.com/u/46930728?v=4&s=144"
+    github: "osulli"
